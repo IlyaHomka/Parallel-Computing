@@ -3,8 +3,6 @@
 #pip install mpi4py
 
 # Commented out IPython magic to ensure Python compatibility.
-# import matplotlib.pyplot as plt
-# %%writefile Qqp.py
 from mpi4py import MPI
 import numpy as np
 import sys
