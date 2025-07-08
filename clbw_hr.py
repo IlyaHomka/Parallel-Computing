@@ -30,7 +30,7 @@ me = 9.31*1e-31               #electron mass kg
 m = 2 * me                    #Cooper paris charge C            
 q = 2 * e                     #Cooper paris mass kg
 kB = 1.38*1e-23               #Boltzmann constant J.K^-1 
-#
+
 # Junction characteristics
 TcL = 1.4                                    # K
 TcR = 0.75*TcL                               # K 
@@ -44,11 +44,13 @@ GammaR = 1e-4*deltacR                        # Dynes parameter
 
 # Superconducting gap
 delta = lambda T, Tc, deltac: deltac*np.tanh(1.74*abs(Tc/T-1)**0.5)
-deltaL = delta(TL, TcL, deltacL)
-deltaR = delta(TR, TcR, deltacR) 
+#deltaL = delta(TL, TcL, deltacL)
+#deltaR = delta(TR, TcR, deltacR) 
+deltaL1 = delta(TR, TcL, deltacL)
+deltaR1 = delta(TL, TcR, deltacR)
 V0 = 1e-6 # 
-t = np.linspace(0,1,1000)
-Omega = 1.5 * pi *np.linspace(1e6,1e9,1000) 
+t = np.linspace(0,1,100)
+Omega = 1.5 * pi *np.linspace(1e6,1e9,300) 
 L = np.size(t) # row size
 K = np.size(Omega) # column size 
 
@@ -93,13 +95,13 @@ if rank == 0:
       phi[i,j] = 2*e*V0/(hbar*Omega[j]) * (1. - np.cos(Omega[j]*t[i]))
   muL = 0*V                    # J
   muR = e*V                    # J      
-  Qqp = np.zeros((np.size(t), np.size(Omega)), dtype=float)
-  Qint = np.zeros((np.size(t), np.size(Omega)), dtype=float)
-  Qj1 = np.zeros((np.size(t), np.size(Omega)), dtype=float)
-  Qj2 = np.zeros((np.size(t), np.size(Omega)), dtype=float)
+  QqpR = np.zeros((np.size(t), np.size(Omega)), dtype=float)
+  QintR = np.zeros((np.size(t), np.size(Omega)), dtype=float)
+  QjR1 = np.zeros((np.size(t), np.size(Omega)), dtype=float)
+  QjR2 = np.zeros((np.size(t), np.size(Omega)), dtype=float)
 else:
   V,phi,muL,muR,Qqp, Qint = None, None, None, None, None, None
-  Qj1, Qj2 = None, None
+  QjR1, QjR2 = None, None
 
 displ = np.empty(size, dtype=int)
 count = np.empty(size, dtype=int) 
@@ -118,10 +120,10 @@ comm.Bcast(displ, root=0)
 
 # comm.Bcast(TR, root=0)
 #  
-Qqp_part = np.zeros(count[rank]*K, dtype=float)
-Qint_part = np.zeros(count[rank]*K, dtype=float)
-Qj1_part = np.zeros(count[rank]*K, dtype=float)
-Qj2_part = np.zeros(count[rank]*K, dtype=float)
+QqpR_part = np.zeros(count[rank]*K, dtype=float)
+QintR_part = np.zeros(count[rank]*K, dtype=float)
+QjR1_part = np.zeros(count[rank]*K, dtype=float)
+QjR2_part = np.zeros(count[rank]*K, dtype=float)
 
 muL_part = np.zeros(count[rank]*K,dtype=float)
 muR_part = np.zeros(count[rank]*K,dtype=float)
@@ -132,16 +134,16 @@ comm.Scatterv([muL.reshape(-1) if rank == 0 else None, arg1, arg2, MPI.FLOAT], m
 comm.Scatterv([muR.reshape(-1) if rank == 0 else None, arg1, arg2, MPI.FLOAT], muR_part, root=0)
 # 
 for i in range(int(K*count[rank])): #/size
-    Qqp_part[i] = integrate.quad(dQqp,-2,2,args=(GammaL, GammaR, deltaL, deltaR, TL, muL_part[i], TR, muR_part[i], deltac), points = [deltaL/deltac, deltaR/deltac], epsabs=1.49e-5,epsrel=1.49e-10)[0]
-    Qint_part[i] = integrate.quad(dQint,-2,2,args=(GammaL, GammaR, deltaL, deltaR, TL, muL_part[i], TR, muR_part[i], deltac), points = [deltaL/deltac, deltaR/deltac], epsabs=1.49e-5,epsrel=1.49e-10)[0]
-    Qj1_part[i] = integrate.quad(dQj1,-1.05,1.05,args=(100*GammaL, 100*GammaR, deltaL, deltaR, TL, muL_part[i], TR, muR_part[i], deltac), points = [deltaL/deltac, deltaR/deltac], epsabs=.2e-3, epsrel=1.4e-12)[0]
-    Qj2_part[i] = integrate.quad(dQj2,-1.05,1.05,args=(100*GammaL, 100*GammaR, deltaL, deltaR, TL, muL_part[i], TR, muR_part[i], deltac), points = [deltaL/deltac, deltaR/deltac], epsabs=.2e-3, epsrel=1.4e-12)[0]
+    QqpR_part[i] = integrate.quad(dQqp,-2,2,args=(GammaL, GammaR, deltaL1, deltaR1, TR, muL_part[i], TL, muR_part[i], deltac), points = [deltaL1/deltac, deltaR1/deltac], epsabs=1.49e-5,epsrel=1.49e-10)[0]
+    QintR_part[i] = integrate.quad(dQint,-2,2,args=(GammaL, GammaR, deltaL1, deltaR1, TR, muL_part[i], TL, muR_part[i], deltac), points = [deltaL1/deltac, deltaR1/deltac], epsabs=1.49e-5,epsrel=1.49e-10)[0]
+    QjR1_part[i] = integrate.quad(dQj1,-1.05,1.05,args=(100*GammaL, 100*GammaR, deltaL1, deltaR1, TR, muL_part[i], TL, muR_part[i], deltac), points = [deltaL1/deltac, deltaR1/deltac], epsabs=.2e-3, epsrel=1.4e-12)[0]
+    QjR2_part[i] = integrate.quad(dQj2,-1.05,1.05,args=(100*GammaL, 100*GammaR, deltaL1, deltaR1, TR, muL_part[i], TL, muR_part[i], deltac), points = [deltaL1/deltac, deltaR1/deltac], epsabs=.2e-3, epsrel=1.4e-12)[0]
 comm.Barrier()
 arg = displ * K * 2 if rank == 0 else K * 2 # * 2
-comm.Gatherv(Qqp_part, [Qqp, count * K * 2, arg, MPI.FLOAT], root=0)      
-comm.Gatherv(Qint_part, [Qint, count * K * 2, arg, MPI.FLOAT], root=0)
-comm.Gatherv(Qj1_part, [Qj1, count * K * 2, arg, MPI.FLOAT], root=0)
-comm.Gatherv(Qj2_part, [Qj2, count * K * 2, arg, MPI.FLOAT], root=0)
+comm.Gatherv(QqpR_part, [QqpR, count * K * 2, arg, MPI.FLOAT], root=0)      
+comm.Gatherv(QintR_part, [QintR, count * K * 2, arg, MPI.FLOAT], root=0)
+comm.Gatherv(QjR1_part, [QjR1, count * K * 2, arg, MPI.FLOAT], root=0)
+comm.Gatherv(QjR2_part, [QjR2, count * K * 2, arg, MPI.FLOAT], root=0)
 #comm.Barrier()
 #print(f'rank:{rank}', Qqp_part,'\n') # img_part.shape, 
 #comm.Barrier()
@@ -152,11 +154,16 @@ if rank == 0:
 #   datafile_path = "Qqp.txt"
    #data = Qint
    #datafile_path = "Qint.txt"
-   Qj = 0.5*(Qj1 + Qj2)
-   Qfw = Qqp + Qj*np.sin(phi) + Qint*np.cos(phi)
-   data = Qfw
-   datafile_path = "Qfw.txt"
+   QjR = 0.5*(QjR1 + QjR2)
+   Qbw = -QqpR + QjR*np.sin(phi) - QintR*np.cos(phi)
+   data = Qbw
+   datafile_path = "Qbw.txt"
+   dtqp, dtj, dti = QqpR, QjR, QintR 
+   dtqp_path, dtj_path, dti_path = "QqpR.txt","QjR.txt","QintR.txt"
    np.savetxt(datafile_path , data)
+   np.savetxt(dtqp_path , dtqp)
+   np.savetxt(dtj_path , dtj)
+   np.savetxt(dti_path , dti)
 # 
 comm.Barrier()
 t_diff = MPI.Wtime() - t_start

@@ -4,7 +4,8 @@
 
 # Commented out IPython magic to ensure Python compatibility.
 # import matplotlib.pyplot as plt
-# %%writefile Qqp.py
+#from signal import signal, SIGPIPE, SIG_DFL
+#signal(SIGPIPE,SIG_DFL) 
 from mpi4py import MPI
 import numpy as np
 import sys
@@ -30,7 +31,7 @@ me = 9.31*1e-31               #electron mass kg
 m = 2 * me                    #Cooper paris charge C            
 q = 2 * e                     #Cooper paris mass kg
 kB = 1.38*1e-23               #Boltzmann constant J.K^-1 
-#
+
 # Junction characteristics
 TcL = 1.4                                    # K
 TcR = 0.75*TcL                               # K 
@@ -46,10 +47,14 @@ GammaR = 1e-4*deltacR                        # Dynes parameter
 delta = lambda T, Tc, deltac: deltac*np.tanh(1.74*abs(Tc/T-1)**0.5)
 deltaL = delta(TL, TcL, deltacL)
 deltaR = delta(TR, TcR, deltacR) 
+#deltaL1 = delta(TR, TcL, deltacL)
+#deltaR1 = delta(TL, TcR, deltacR)
 V0 = 1e-6 # 
-t = np.linspace(0,1,1000)
-Omega = 1.5 * pi *np.linspace(1e6,1e9,1000) 
-L = np.size(t) # row size
+#t = np.linspace(0,1,1000) #1000
+Omega = 1.5 * pi *np.linspace(1e6,1e7,500)#1000 1e9 1e6
+T = 2 * pi/Omega
+t = np.linspace(0,T,500) 
+L = np.size(T) # row size
 K = np.size(Omega) # column size 
 
 # Functions
@@ -86,17 +91,17 @@ if rank == 0:
   V = np.zeros((L, K), dtype=float)# Voltage
   for i in range(L):
     for j in range(K):
-      V[i,j] = V0 * np.sin(Omega[j]*t[i])
+      V[i,j] = V0 * np.sin(Omega[j]*t[i,j])
   phi = np.zeros((L, K), dtype=float) # Superconducting Phase
   for i in range(L):
     for j in range(K):
-      phi[i,j] = 2*e*V0/(hbar*Omega[j]) * (1. - np.cos(Omega[j]*t[i]))
+      phi[i,j] = 2*e*V0/(hbar*Omega[j]) * (1. - np.cos(Omega[j]*t[i,j]))
   muL = 0*V                    # J
   muR = e*V                    # J      
-  Qqp = np.zeros((np.size(t), np.size(Omega)), dtype=float)
-  Qint = np.zeros((np.size(t), np.size(Omega)), dtype=float)
-  Qj1 = np.zeros((np.size(t), np.size(Omega)), dtype=float)
-  Qj2 = np.zeros((np.size(t), np.size(Omega)), dtype=float)
+  Qqp = np.zeros((L,K), dtype=float)
+  Qint = np.zeros((L,K), dtype=float)
+  Qj1 = np.zeros((L,K), dtype=float)
+  Qj2 = np.zeros((L,K), dtype=float)
 else:
   V,phi,muL,muR,Qqp, Qint = None, None, None, None, None, None
   Qj1, Qj2 = None, None
@@ -156,9 +161,14 @@ if rank == 0:
    Qfw = Qqp + Qj*np.sin(phi) + Qint*np.cos(phi)
    data = Qfw
    datafile_path = "Qfw.txt"
+   dtqp, dtj, dti = Qqp, Qj, Qint 
+   dtqp_path, dtj_path, dti_path = "Qqp.txt","Qj.txt","Qint.txt"
    np.savetxt(datafile_path , data)
+   np.savetxt(dtqp_path , dtqp)
+   np.savetxt(dtj_path , dtj)
+   np.savetxt(dti_path , dti)
 # 
 comm.Barrier()
 t_diff = MPI.Wtime() - t_start
 if comm.rank==0: 
-  print("Execution time", t_diff)
+    print("Execution time", t_diff)
